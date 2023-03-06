@@ -1,0 +1,16 @@
+<CargoMessage type="WarehouseMovement-Out">
+    <Header from="RAPIDCARGO" messageId="65" messageTime="2023-03-06T17:29:06.191Z" to="CARGOINFO"/>
+    <WarehouseMovementOut>
+        <movementTime>2023-03-06T17:29:06.195Z</movementTime>
+        <declaredIn code="CDGRC1" label="RapidCargo CDG"/>
+        <to code="CDGAF1" label="Air Cargo CDG 1"/>
+        <goods>
+            <ref code="5665" type="B"/>
+            <amout quantity="10" weight="150"/>
+            <description>Web site plan sport activity</description>
+            <totalRefAmount quantity="10" weight="150"/>
+        </goods>
+        <customsStatus>T1</customsStatus>
+        <customsDocument ref="89" type="X"/>
+    </WarehouseMovementOut>
+</CargoMessage>
