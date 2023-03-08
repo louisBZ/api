@@ -48,37 +48,25 @@ public class MoveService {
   private MoveRepository moveRepository;
 
   public Move saveMove(Move move) {
-    List<Move> moves = (List<Move>) moveRepository.findAll();
+    List<Move> refExist = moveRepository.findByRef(move.getRef());
     Move result = new Move();
-    if (!move.getInOut()) {
-      for (Move _move : moves) {
-        if (_move.getInOut() == false && move.getRef().equals(_move.getRef())) {
-          result.setMsg("Cette référence existe deja");
-          return result;
-        }
-      }
+    if (refExist.size() > 0 && !move.getInOut()) {
+      result.setMsg("Une entrée avec cette référence existe déjà");
+    } else if (refExist.size() == 0 && move.getInOut()) {
+      result.setMsg("Il n'éxsite aucune entrée avec cette référence");
+    } else if (refExist.size() > 1 && move.getInOut()) {
+      result.setMsg("Une sortie avec cette référence existe déjà");
+    } else { // (refExist.size() == 0 && !move.getInOut())
+             // ||(refExist.size() > 0 && move.getInOut())
       move.setMoveDate(Instant.now().truncatedTo(ChronoUnit.MILLIS).toString());
       result = moveRepository.save(move);
       this.createXMLFile(move);
-      return result;
-    } else {
-      for (Move _move : moves) {
-        if (move.getRef().equals(_move.getRef())) {
-          // la référence existe deja on peut donc la sortir
-          move.setMoveDate(Instant.now().truncatedTo(ChronoUnit.MILLIS).toString());
-          result = moveRepository.save(move);
-          this.createXMLFile(move);
-          return result;
-        }
-      }
-      result
-          .setMsg("impossible de déclarer une sortie sur une référence de marchandise dont on a pas déclaré l'entrée");
-      return result;
     }
+    return result;
   }
 
   public List<Move> getMoves() {
-    List<Move> moves = (List<Move>) moveRepository.findFirst50ByOrderByCreationDateDesc();
+    List<Move> moves = moveRepository.findFirst50ByOrderByCreationDateDesc();
     return moves;
   }
 

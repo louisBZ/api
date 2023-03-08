@@ -11,4 +11,6 @@ import com.example.api.model.Move;
 public interface MoveRepository extends JpaRepository<Move, Long> {
   List<Move> findFirst50ByOrderByCreationDateDesc();
 
+  List<Move> findByRef(String ref);
+
 }
