@@ -8,8 +8,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.example.api.model.Move;
 import com.example.api.repository.MoveRepository;
+import com.github.mustachejava.DefaultMustacheFactory;
+import com.github.mustachejava.Mustache;
+import com.github.mustachejava.MustacheFactory;
 
 import java.io.File;
+import java.io.StringWriter;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
@@ -71,6 +75,12 @@ public class MoveService {
   }
 
   private void createXMLFile(Move move) {
+    MustacheFactory mf = new DefaultMustacheFactory();
+    Mustache m = mf.compile("CargoMessage.mustache");
+    StringWriter writer = new StringWriter();
+    m.execute(writer, move);
+    System.out.println(writer.toString());
+
     try {
 
       DocumentBuilderFactory documentFactory = DocumentBuilderFactory.newInstance();

@@ -8,6 +8,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.Data;
 
+import java.util.function.Function;
+
 @Data
 @Entity
 @Table(name = "moves")
@@ -60,6 +62,16 @@ public class Move {
     this.description = description;
     this.customsDocType = customsDocType;
     this.customsDocRef = customsDocRef;
+  }
+
+  public Function<Object, Object> messageType() {
+    return (obj) -> this.inOut ? String.format("WarehouseMovement-Out", obj)
+        : String.format("WarehouseMovement-In", obj);
+  }
+
+  public Function<Object, Object> fromTo() {
+    return (obj) -> this.inOut ? String.format("to", obj)
+        : String.format("from", obj);
   }
 
   @Id
