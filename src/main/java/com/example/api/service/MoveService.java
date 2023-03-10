@@ -9,10 +9,10 @@ import org.springframework.stereotype.Service;
 import com.example.api.model.Move;
 import com.example.api.repository.MoveRepository;
 import com.github.mustachejava.DefaultMustacheFactory;
-import com.github.mustachejava.Mustache;
 import com.github.mustachejava.MustacheFactory;
 
-import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.io.StringWriter;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -29,19 +29,10 @@ import javax.mail.Message;
 import javax.mail.MessagingException;
 import javax.mail.Session;
 import javax.mail.Transport;
+import javax.mail.SendFailedException;
+import javax.mail.internet.AddressException;
 import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeMessage;
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.transform.OutputKeys;
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerException;
-import javax.xml.transform.TransformerFactory;
-import javax.xml.transform.dom.DOMSource;
-import javax.xml.transform.stream.StreamResult;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
 import lombok.Data;
 
 @Data
@@ -76,106 +67,30 @@ public class MoveService {
 
   private void createXMLFile(Move move) {
     MustacheFactory mf = new DefaultMustacheFactory();
-    Mustache m = mf.compile("CargoMessage.mustache");
     StringWriter writer = new StringWriter();
-    m.execute(writer, move);
-    System.out.println(writer.toString());
-
-    try {
-
-      DocumentBuilderFactory documentFactory = DocumentBuilderFactory.newInstance();
-      DocumentBuilder documentBuilder = documentFactory.newDocumentBuilder();
-      Document document = documentBuilder.newDocument();
-      // ROOT
-      Element cargoMessage = document.createElement("CargoMessage");
-      cargoMessage.setAttribute("type", move.getInOut() ? "WarehouseMovement-Out" : "WarehouseMovement-In");
-      document.appendChild(cargoMessage);
-      // HEADER
-      Element header = document.createElement("Header");
-      header.setAttribute("from", "RAPIDCARGO");
-      header.setAttribute("to", "CARGOINFO");
-      header.setAttribute("messageTime", move.getCreationDate());
-      header.setAttribute("messageId", move.getId().toString());
-      cargoMessage.appendChild(header);
-      // WarehouseMovementIn | WarehouseMovementOut
-      Element warehouseMovement;
-      if (!move.getInOut()) {
-        warehouseMovement = document.createElement("WarehouseMovementIn");
-      } else {
-        warehouseMovement = document.createElement("WarehouseMovementOut");
-      }
-      cargoMessage.appendChild(warehouseMovement);
-
-      // movementTime
-      Element movementTime = document.createElement("movementTime");
-      movementTime.appendChild(document.createTextNode(move.getMoveDate()));
-      warehouseMovement.appendChild(movementTime);
-      // declaredIn
-      Element declaredIn = document.createElement("declaredIn");
-      declaredIn.setAttribute("code", move.getDeclarationPlaceCode());
-      declaredIn.setAttribute("label", move.getDeclarationPlace());
-      warehouseMovement.appendChild(declaredIn);
-      // From | To
-      Element FromTo;
-      if (!move.getInOut()) {
-        FromTo = document.createElement("from");
-      } else {
-        FromTo = document.createElement("to");
-      }
-      FromTo.setAttribute("code", move.getWarehousCode());
-      FromTo.setAttribute("label", move.getWarehousLabel());
-      warehouseMovement.appendChild(FromTo);
-      // goods
-      Element goods = document.createElement("goods");
-      warehouseMovement.appendChild(goods);
-      // ref
-      Element ref = document.createElement("ref");
-      ref.setAttribute("type", move.getRefType());
-      ref.setAttribute("code", move.getRef());
-      goods.appendChild(ref);
-      // amout
-      Element amout = document.createElement("amout");
-      amout.setAttribute("quantity", String.valueOf(move.getQuantity()));
-      amout.setAttribute("weight", String.valueOf(move.getWeight()));
-      goods.appendChild(amout);
-      // description
-      Element description = document.createElement("description");
-      description.appendChild(document.createTextNode(move.getDescription()));
-      goods.appendChild(description);
-      // totalRefAmount
-      Element totalRefAmount = document.createElement("totalRefAmount");
-      totalRefAmount.setAttribute("quantity", String.valueOf(move.getTotalQuantity()));
-      totalRefAmount.setAttribute("weight", String.valueOf(move.getTotalWeight()));
-      goods.appendChild(totalRefAmount);
-      // Customs Satus
-      Element customsStatus = document.createElement("customsStatus");
-      customsStatus.appendChild(document.createTextNode(move.getCustomsStatus()));
-      warehouseMovement.appendChild(customsStatus);
-      // IF OUT Customs Document
-      if (move.getInOut()) {
-        Element customsDocument = document.createElement("customsDocument");
-        customsDocument.setAttribute("type", move.getCustomsDocType());
-        customsDocument.setAttribute("ref", move.getCustomsDocRef());
-        warehouseMovement.appendChild(customsDocument);
-      }
-
-      // create the xml file
-      TransformerFactory transformerFactory = TransformerFactory.newInstance();
-      Transformer transformer = transformerFactory.newTransformer();
-      transformer.setOutputProperty(OutputKeys.INDENT, "yes");
-      transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "4");
-      transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
-      DOMSource domSource = new DOMSource(document);
-      StreamResult streamResult = new StreamResult(new File("./CargoMessage.xml"));
-      transformer.transform(domSource, streamResult);
-
-      System.out.println("Done creating XML File");
-      // this.sendMail();
-    } catch (ParserConfigurationException pce) {
-      pce.printStackTrace();
-    } catch (TransformerException tfe) {
-      tfe.printStackTrace();
+    if (move.getInOut()) {
+      mf.compile("CargoMessageOut.mustache").execute(writer, move);
+    } else {
+      mf.compile("CargoMessageIn.mustache").execute(writer, move);
     }
+    /*
+     * // Unique template
+     * // mf.compile("CargoMessage.mustache").execute(writer, move);
+     */
+    try {
+      FileWriter fw = new FileWriter("CargoMessage.xml");
+      /*
+       * // Unique template
+       * fw.write(writer.toString().replaceAll("(?m)^[ \t]*\r?\n", ""));
+       * // (?m) pour string avec plusieur lignes
+       */
+      fw.close();
+    } catch (IOException ioex) {
+      ioex.printStackTrace();
+      System.out.println("Exception : XML file not created : " + ioex.toString());
+    }
+    System.out.println("Done creating XML File");
+    // this.sendMail();
   }
 
   private void sendMail() {

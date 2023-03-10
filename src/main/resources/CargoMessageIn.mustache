@@ -1,0 +1,15 @@
+<CargoMessage type="WarehouseMovement-In">
+    <Header from="RAPIDCARGO" to="CARGOINFO" messageId="{{id}}" messageTime="{{creationDate}}" />
+    <WarehouseMovementIn>
+        <movementTime>{{moveDate}}</movementTime>
+        <declaredIn code="{{declarationPlaceCode}}" label="{{declarationPlace}}"/>
+        <from code="{{warehousCode}}" label="{{warehousLabel}}"/>
+        <goods>
+            <ref code="{{ref}}" type="{{refType}}"/>
+            <amout quantity="{{quantity}}" weight="{{weight}}"/>
+            <description>{{description}}</description>
+            <totalRefAmount quantity="{{totalQuantity}}" weight="{{totalWeight}}"/>
+        </goods>
+        <customsStatus>{{customsStatus}}</customsStatus>
+    </WarehouseMovementIn>
+</CargoMessage>
