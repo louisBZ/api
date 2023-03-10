@@ -62,8 +62,8 @@ public class MoveService {
       result.setMsg("Une sortie avec cette référence existe déjà");
     } else { // (refExist.size() == 0 && !move.getInOut())
              // ||(refExist.size() > 0 && move.getInOut())
-      move.setMoveDate(Instant.now().truncatedTo(ChronoUnit.MILLIS).toString());
       result = moveRepository.save(move);
+      move.setMoveDate(Instant.now().truncatedTo(ChronoUnit.MILLIS));
       this.createXMLFile(move);
     }
     return result;

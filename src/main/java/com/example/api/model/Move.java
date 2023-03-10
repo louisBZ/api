@@ -8,6 +8,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.Data;
 
+import java.time.Instant;
 import java.util.function.Function;
 
 @Data
@@ -18,7 +19,7 @@ public class Move {
   public Move() {
   }
 
-  public Move(String creationDate, String creationUser, String moveDate,
+  public Move(Instant creationDate, String creationUser, Instant moveDate,
       String declarationPlace, String declarationPlaceCode, String warehousCode, String warehousLabel,
       String customsStatus, String refType, String ref, int quantity, int weight, int totalQuantity, int totalWeight,
       String description) {
@@ -40,8 +41,8 @@ public class Move {
     this.description = description;
   }
 
-  public Move(String customsDocType, String customsDocRef, String creationDate,
-      String creationUser, String moveDate, String declarationPlace, String declarationPlaceCode, String warehousCode,
+  public Move(String customsDocType, String customsDocRef, Instant creationDate,
+      String creationUser, Instant moveDate, String declarationPlace, String declarationPlaceCode, String warehousCode,
       String warehousLabel, String customsStatus, String refType, String ref, int quantity, int weight,
       int totalQuantity, int totalWeight, String description) {
     this.inOut = true;
@@ -82,13 +83,13 @@ public class Move {
   private Boolean inOut;
 
   @Column(name = "creation_date")
-  private String creationDate;
+  private Instant creationDate;
 
   @Column(name = "creation_user")
   private String creationUser;
 
   @Column(name = "move_date")
-  private String moveDate;
+  private Instant moveDate;
 
   @Column(name = "declaration_place")
   private String declarationPlace = "RapidCargo CDG";
