@@ -97,13 +97,13 @@ public class MoveService {
     final String username = "*************";
     final String password = "***********";
 
-    String host = "***************";// express-relay.jangosmtp.net
+    String host = "sandbox.smtp.mailtrap.io";
 
     Properties props = new Properties();
     props.put("mail.smtp.auth", "true");
-    props.put("mail.smtp.starttls.enable", "true");
+    props.put("mail.smtp.starttls.enable", "false");
     props.put("mail.smtp.host", host);
-    props.put("mail.smtp.port", "25");
+    props.put("mail.smtp.port", "2525");
 
     // Get the Session object.
     Session session = Session.getInstance(props,
@@ -112,32 +112,39 @@ public class MoveService {
             return new PasswordAuthentication(username, password);
           }
         });
+    MimeMessage message = new MimeMessage(session);
+    BodyPart messageBodyPart = new MimeBodyPart();
+    Multipart multipart = new MimeMultipart();
+    String filename = "./CargoMessage.xml";
+    DataSource source = new FileDataSource(filename);
+    InternetAddress eMailAddr = new InternetAddress();
+    try {
+      eMailAddr = new InternetAddress("baizeau.louis@gmail.com");
+    } catch (AddressException aex) {
+      aex.printStackTrace();
+      System.out.println("Exception : Internet address parse failed : " + aex.toString());
+    }
 
     try {
       // create mail
-      MimeMessage message = new MimeMessage(session);
-      message.setFrom(new InternetAddress("baizeau.louis@gmail.com"));
-      message.setRecipient(Message.RecipientType.TO,
-          new InternetAddress("baizeau.louis@gmail.com"));
+      message.setFrom(eMailAddr);
+      message.setRecipient(Message.RecipientType.TO, eMailAddr);
       message.setSubject("Test");
       // create content
-      BodyPart messageBodyPart = new MimeBodyPart();
       messageBodyPart.setText("There is an xml file in attachement");
-      Multipart multipart = new MimeMultipart();
       multipart.addBodyPart(messageBodyPart);// add text
-      messageBodyPart = new MimeBodyPart();
-      String filename = "./CargoMessage.xml";
-      DataSource source = new FileDataSource(filename);
+      messageBodyPart = new MimeBodyPart(); // TESTER SI FONCTIONNE SANS
       messageBodyPart.setDataHandler(new DataHandler(source));
       messageBodyPart.setFileName(filename);
       multipart.addBodyPart(messageBodyPart);// add attachement
       message.setContent(multipart);
       // Send mail
       Transport.send(message);
-      System.out.println("message sent successfully....");
     } catch (MessagingException mex) {
       mex.printStackTrace();
+      System.out.println(" Exception : Message not sent : " + mex.toString());
     }
+    System.out.println("message sent successfully....");
   }
 
   public Optional<Move> getMove(final Long id) {
