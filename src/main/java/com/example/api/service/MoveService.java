@@ -43,21 +43,43 @@ public class MoveService {
   private MoveRepository moveRepository;
 
   public Move saveMove(Move move) {
-    List<Move> refExist = moveRepository.findByRef(move.getRef());
-    Move result = new Move();
-    if (refExist.size() > 0 && !move.getInOut()) {
-      result.setMsg("Une entrée avec cette référence existe déjà");
-    } else if (refExist.size() == 0 && move.getInOut()) {
-      result.setMsg("Il n'éxsite aucune entrée avec cette référence");
-    } else if (refExist.size() > 1 && move.getInOut()) {
-      result.setMsg("Une sortie avec cette référence existe déjà");
-    } else { // (refExist.size() == 0 && !move.getInOut())
-             // ||(refExist.size() > 0 && move.getInOut())
-      result = moveRepository.save(move);
+    if (this.isRefValid(move.getRef(), move.getRefType(), move.getInOut())
+        && this.isQuantityWeightValid(move.getQuantity(), move.getWeight(), move.getTotalQuantity(),
+            move.getTotalWeight())) {
       move.setMoveDate(Instant.now().truncatedTo(ChronoUnit.MILLIS));
       this.createXMLFile(move);
+      return moveRepository.save(move);
+    } else {// return error 400 Bad Request
+      return new Move();
     }
-    return result;
+  }
+
+  private Boolean isQuantityWeightValid(int quantity, int weight, int totalQuantity, int totalWeight) {
+    if (totalQuantity >= quantity && totalWeight >= weight) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  private Boolean isRefValid(String ref, String refType, Boolean inOut) {
+    if (!refType.equals("AWB") || ref.length() == 11) {
+      List<Move> refExist = moveRepository.findByRef(ref);
+      if (refExist.size() > 0 && !inOut) {
+        System.out.println("Une entrée avec cette référence existe déjà");
+        return false;
+      } else if (refExist.size() == 0 && inOut) {
+        System.out.println("Il n'éxsite aucune entrée avec cette référence");
+        return false;
+      } else if (refExist.size() > 1 && inOut) {
+        System.out.println("Une sortie avec cette référence existe déjà");
+        return false;
+      } else {
+        return true;
+      }
+    } else {
+      return false;
+    }
   }
 
   public List<Move> getMoves() {
