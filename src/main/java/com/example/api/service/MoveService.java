@@ -5,9 +5,14 @@ import java.util.Optional;
 import java.util.Properties;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+
+import com.example.api.exception.MoveBuisnessRulesException;
 import com.example.api.model.Move;
 import com.example.api.repository.MoveRepository;
+import com.example.api.exception.MoveEmailException;
 import com.github.mustachejava.DefaultMustacheFactory;
 import com.github.mustachejava.MustacheFactory;
 
@@ -16,20 +21,17 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-
 import javax.mail.PasswordAuthentication;
 import javax.mail.internet.MimeMultipart;
 import javax.mail.Multipart;
 import javax.mail.BodyPart;
 import javax.activation.DataHandler;
-import javax.activation.DataSource;
 import javax.activation.FileDataSource;
 import javax.mail.internet.MimeBodyPart;
 import javax.mail.Message;
 import javax.mail.MessagingException;
 import javax.mail.Session;
 import javax.mail.Transport;
-import javax.mail.SendFailedException;
 import javax.mail.internet.AddressException;
 import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeMessage;
@@ -42,52 +44,66 @@ public class MoveService {
   @Autowired
   private MoveRepository moveRepository;
 
-  public Move saveMove(Move move) {
-    if (this.isRefValid(move.getRef(), move.getRefType(), move.getInOut())
-        && this.isQuantityWeightValid(move.getQuantity(), move.getWeight(), move.getTotalQuantity(),
-            move.getTotalWeight())) {
-      move.setMoveDate(Instant.now().truncatedTo(ChronoUnit.MILLIS));
+  public Move saveMove(Move move) throws ResponseStatusException {
+    move.setMoveDate(Instant.now().truncatedTo(ChronoUnit.MILLIS));
+    try {
+      this.isRefValid(move.getRef(), move.getRefType(), move.getInOut());
+      this.isQuantityWeightValid(move.getQuantity(), move.getWeight(), move.getTotalQuantity(),
+          move.getTotalWeight());
+    } catch (MoveBuisnessRulesException ex) {
+      System.out.println(
+          "MoveService Error on saveMove(move) Buisness rules not respected : " + ex.getMessage());
+      // ex.printStackTrace();
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+          "This move dont respect all buisness rules : " + ex.getMessage());
+    }
+    try {
       this.createXMLFile(move);
-      return moveRepository.save(move);
-    } else {// return error 400 Bad Request
-      return new Move();
+      this.sendMail();
+    } catch (MoveEmailException ex) {
+      System.out.println(
+          "MoveService Error on saveMove(move) Email not sent : " + ex.getMessage());
+      // ex.printStackTrace();
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+          "Email not sent : " + ex.getMessage());
     }
+    return moveRepository.save(move);
   }
 
-  private Boolean isQuantityWeightValid(int quantity, int weight, int totalQuantity, int totalWeight) {
+  private void isQuantityWeightValid(int quantity, int weight, int totalQuantity, int totalWeight)
+      throws MoveBuisnessRulesException {
     if (totalQuantity >= quantity && totalWeight >= weight) {
-      return true;
+      System.out.println("Quantity and weight is Valid.");
+      return;
     } else {
-      return false;
+      throw new MoveBuisnessRulesException(
+          "isQuantityWeightValid() : Total quantity and total weight must be superior or equal to quantity and weight.");
     }
   }
 
-  private Boolean isRefValid(String ref, String refType, Boolean inOut) {
+  private void isRefValid(String ref, String refType, Boolean inOut) throws MoveBuisnessRulesException {
     if (!refType.equals("AWB") || ref.length() == 11) {
       List<Move> refExist = moveRepository.findByRef(ref);
       if (refExist.size() > 0 && !inOut) {
-        System.out.println("Une entrée avec cette référence existe déjà");
-        return false;
+        throw new MoveBuisnessRulesException(
+            "isRefValid() : An entry with this reference already exists.");
       } else if (refExist.size() == 0 && inOut) {
-        System.out.println("Il n'éxsite aucune entrée avec cette référence");
-        return false;
+        throw new MoveBuisnessRulesException(
+            "isRefValid() : There is no entry with this reference.");
       } else if (refExist.size() > 1 && inOut) {
-        System.out.println("Une sortie avec cette référence existe déjà");
-        return false;
+        throw new MoveBuisnessRulesException(
+            "isRefValid() : An output with this reference already exists.");
       } else {
-        return true;
+        System.out.println("Ref is Valid");
+        return;
       }
     } else {
-      return false;
+      throw new MoveBuisnessRulesException(
+          "isRefValid() : Ref type is AWB so ref must have 11 characters.");
     }
   }
 
-  public List<Move> getMoves() {
-    List<Move> moves = moveRepository.findFirst50ByOrderByCreationDateDesc();
-    return moves;
-  }
-
-  private void createXMLFile(Move move) {
+  private void createXMLFile(Move move) throws MoveEmailException {
     MustacheFactory mf = new DefaultMustacheFactory();
     StringWriter writer = new StringWriter();
     if (move.getInOut()) {
@@ -101,6 +117,7 @@ public class MoveService {
      */
     try {
       FileWriter fw = new FileWriter("CargoMessage.xml");
+      fw.write(writer.toString());
       /*
        * // Unique template
        * fw.write(writer.toString().replaceAll("(?m)^[ \t]*\r?\n", ""));
@@ -108,26 +125,21 @@ public class MoveService {
        */
       fw.close();
     } catch (IOException ioex) {
-      ioex.printStackTrace();
-      System.out.println("Exception : XML file not created : " + ioex.toString());
+      throw new MoveEmailException(
+          "createXMLFile() : IOException : XML file not created : " + ioex.getMessage());
     }
-    System.out.println("Done creating XML File");
-    // this.sendMail();
+    System.out.println("XML File created.");
   }
 
-  private void sendMail() {
     final String username = "*************";
     final String password = "***********";
-
     String host = "sandbox.smtp.mailtrap.io";
-
+  private void sendMail() throws MoveEmailException {
     Properties props = new Properties();
     props.put("mail.smtp.auth", "true");
     props.put("mail.smtp.starttls.enable", "false");
     props.put("mail.smtp.host", host);
     props.put("mail.smtp.port", "2525");
-
-    // Get the Session object.
     Session session = Session.getInstance(props,
         new javax.mail.Authenticator() {
           protected PasswordAuthentication getPasswordAuthentication() {
@@ -135,50 +147,87 @@ public class MoveService {
           }
         });
     MimeMessage message = new MimeMessage(session);
-    BodyPart messageBodyPart = new MimeBodyPart();
+    BodyPart attachmentMessageBodyPart = new MimeBodyPart();
+    BodyPart textMessageBodyPart = new MimeBodyPart();
     Multipart multipart = new MimeMultipart();
     String filename = "./CargoMessage.xml";
-    DataSource source = new FileDataSource(filename);
+    DataHandler source = new DataHandler(new FileDataSource(filename));
     InternetAddress eMailAddr = new InternetAddress();
     try {
       eMailAddr = new InternetAddress("baizeau.louis@gmail.com");
     } catch (AddressException aex) {
-      aex.printStackTrace();
-      System.out.println("Exception : Internet address parse failed : " + aex.toString());
+      throw new MoveEmailException(
+          "sendMail() : AddressException : Internet address parse failed : " + aex.getMessage());
     }
-
     try {
-      // create mail
       message.setFrom(eMailAddr);
       message.setRecipient(Message.RecipientType.TO, eMailAddr);
       message.setSubject("Test");
-      // create content
-      messageBodyPart.setText("There is an xml file in attachement");
-      multipart.addBodyPart(messageBodyPart);// add text
-      messageBodyPart = new MimeBodyPart(); // TESTER SI FONCTIONNE SANS
-      messageBodyPart.setDataHandler(new DataHandler(source));
-      messageBodyPart.setFileName(filename);
-      multipart.addBodyPart(messageBodyPart);// add attachement
+      textMessageBodyPart.setText("There is an xml file in attachement");
+      multipart.addBodyPart(textMessageBodyPart);
+      attachmentMessageBodyPart.setDataHandler(source);
+      attachmentMessageBodyPart.setFileName(filename);
+      multipart.addBodyPart(attachmentMessageBodyPart);
       message.setContent(multipart);
-      // Send mail
       Transport.send(message);
     } catch (MessagingException mex) {
-      mex.printStackTrace();
-      System.out.println(" Exception : Message not sent : " + mex.toString());
+      throw new MoveEmailException(
+          "sendMail() : MessagingException : " + mex.getMessage());
     }
-    System.out.println("message sent successfully....");
+    System.out.println("message sent successfully.");
   }
 
-  public Optional<Move> getMove(final Long id) {
-    return moveRepository.findById(id);
+  public List<Move> getMoves() throws ResponseStatusException {
+    List<Move> moves = moveRepository.findFirst50ByOrderByCreationDateDesc();
+    if (moves.size() > 0) {
+      return moves;
+    } else {
+      System.out.println("MoveService Error on getMoves() There is no move saved.");
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+          "There is no move saved.");
+    }
   }
 
-  public void deleteMove(final Long id) {
-    moveRepository.deleteById(id);
+  public Move getMove(final Long id) throws ResponseStatusException {
+    Optional<Move> move = moveRepository.findById(id);
+    if (move.isPresent()) {
+      return move.get();
+    } else {
+      System.out.println("MoveService Error on getMove(id) This move doesn't exist.");
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+          "This move doesn't exist.");
+    }
   }
 
-  public void updateMove(Move move) {
-    moveRepository.save(move);
+  public void deleteMove(final Long id) throws ResponseStatusException {
+    Optional<Move> e = moveRepository.findById(id);
+    if (e.isPresent()) {
+      moveRepository.deleteById(id);
+    } else {
+      System.out.println("MoveService Error on deleteMove(id) This move doesn't exist.");
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+          "Cannot delete this move doesn't exist.");
+    }
   }
 
+  public Move updateMove(Long id, Move move) throws ResponseStatusException {
+    Optional<Move> e = moveRepository.findById(id);
+    if (e.isPresent()) {
+      Move currentMove = e.get();
+
+      String description = move.getDescription();
+      if (description != null) {
+        currentMove.setDescription(description);
+      }
+      String customsStatus = move.getCustomsStatus();
+      if (customsStatus != null) {
+        currentMove.setCustomsStatus(customsStatus);
+      }
+      return moveRepository.save(currentMove);
+    } else {
+      System.out.println("MoveService Error on updateMove(id, move) This move doesn't exist.");
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+          "Cannot update this move doesn't exist.");
+    }
+  }
 }
