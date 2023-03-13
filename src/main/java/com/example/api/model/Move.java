@@ -133,6 +133,4 @@ public class Move {
 
   private String description;
 
-  private String msg = null;
-
 }

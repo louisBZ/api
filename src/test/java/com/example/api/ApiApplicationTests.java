@@ -123,25 +123,3 @@ class ApiApplicationTests {
 				.andExpect(content().string(requestJson));
 	}
 }
-
-// String baseref = "0771234567";
-// for (int i = 0; i < 53; i++) {
-// Instant creationDate = Instant.now().truncatedTo(ChronoUnit.MILLIS);
-// Instant moveDate = Instant.now().plus(1,
-// ChronoUnit.MINUTES).truncatedTo(ChronoUnit.MILLIS);
-// Move move = new Move(creationDate, "Pierre", moveDate, "RapidCargo CDG",
-// "CDGRC1", "CDGAF1", "Air Cargo CDG 1", "X",
-// "AWB", baseref + String.valueOf(i), 12, 345, 12, 345, "ELECTRONICS");
-// moveRepository.save(move);
-// }
-// // GENERATE XML FILE
-// long id = 1;
-// Move move = moveRepository.findById(id).get();
-// long newId = 666;
-// move.setId(newId);
-// move.setRefType("AWB");
-// move.setRef("666");
-// // move.setCustomsDocType("T1");
-// // move.setCustomsDocRef("666");
-// // move.setInOut(true);// Impossible car la référence n'éxiste pas
-// moveService.saveMove(move);
